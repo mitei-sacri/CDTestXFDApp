@@ -59,8 +59,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # タイトル
-st.markdown("<h1> CD Crossfade Demo Maker</h1>", unsafe_allow_html=True)
-st.caption("クロスフェードエディター改")
+st.markdown("<h1> クロスフェードエディター改</h1>", unsafe_allow_html=True)
+st.caption("XFD Editor ver.2.0")
 
 # 1. パラメータ設定 (サイドバー)
 st.sidebar.markdown("### タイム設定")
