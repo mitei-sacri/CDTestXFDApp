@@ -96,7 +96,7 @@ if uploaded_files:
 
     # ① ドラッグ＆ドロップによる並べ替えリスト
     st.markdown("## 2. 曲順の編集（ドラッグ＆ドロップ）")
-    st.caption("以下のリスト項目を上下にドラッグ＆ドロップして並べ替え")
+    st.caption("以下のリスト項目を自由にドラッグ＆ドロップして並べ替え")
 
     # sort_items で並べ替え可能なUIを表示
     sorted_order = sort_items(st.session_state.song_order)
@@ -130,18 +130,20 @@ if uploaded_files:
 
                     # デモ全体の作成と、つなぎ目ごとの切り出し処理
                     demo_track = AudioSegment.empty()
-                    connection_segments = []  # つなぎ目部分のプレビュー用リスト
                     
-                    # 実効的な各曲の長さ（クロスフェードを考慮した加算長）
-                    # 1曲の展開長さ L = p + (p - m) = 2p - m
-                    track_unit_len_ms = (2 * p_ms) - m_ms
+                    # 同一トラック内（Part1とPart2）のクロスフェード結合後の1曲分の実効長
+                    # L = p + p - m = 2p - m （秒換算で n 秒相当）
+                    single_track_len_ms = (2 * p_ms) - m_ms
 
                     for i, (name, p1, p2) in enumerate(parts):
+                        # 同一トラック内の頭(A1)と末尾(A2)はクロスフェードで接続
+                        track_segment = p1.append(p2, crossfade=m_ms)
+                        
+                        # トラック間（曲A ➔ 曲B）はクロスフェードせずそのまま繋ぐ
                         if i == 0:
-                            demo_track = p1.append(p2, crossfade=m_ms)
+                            demo_track = track_segment
                         else:
-                            demo_track = demo_track.append(p1, crossfade=m_ms)
-                            demo_track = demo_track.append(p2, crossfade=m_ms)
+                            demo_track = demo_track.append(track_segment, crossfade=0)
 
                     # 出力保存
                     output_io = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
@@ -149,16 +151,14 @@ if uploaded_files:
                     st.session_state.demo_file_path = output_io.name
 
                     # つなぎ目プレビュー用データの生成
-                    # 各「曲と曲の境目」前後（例: クロスフェード前後の数秒間）を切り出す
+                    # 各「曲と曲の境目」前後（トラック間のカット接続部分）を切り出す
                     transitions = []
                     for i in range(len(parts) - 1):
                         curr_name = parts[i][0]
                         next_name = parts[i+1][0]
                         
-                        # 境目のタイムスタンプ計算
-                        # i曲目のP2とi+1曲目のP1が交差する位置
-                        # 全体の構成: [曲0(2p-m)] -m [曲1(2p-m)] -m ...
-                        transition_center_ms = (i + 1) * track_unit_len_ms
+                        # 境目のタイムスタンプ計算（トラック間はクロスフェードしないため単に1曲の長さの倍数）
+                        transition_center_ms = (i + 1) * single_track_len_ms
                         
                         # 前後3秒（計6秒）をつなぎ目試聴用に切り出し
                         start_ms = max(0, transition_center_ms - 3000)
@@ -193,7 +193,7 @@ if uploaded_files:
             if "transitions" in st.session_state and st.session_state.transitions:
                 st.markdown("---")
                 st.markdown("## 3. ピンポイント試聴")
-                st.caption("曲と曲が切り替わるクロスフェード部分（前後3秒）だけをピンポイントで確認できます。")
+                st.caption("曲と曲が切り替わるクロスフェード部分、及びその前後3秒だけをピンポイントで確認できます。")
 
                 selected_trans_label = st.selectbox(
                     "確認したい繋ぎ目を選択してください：",
